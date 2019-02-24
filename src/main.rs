@@ -1,5 +1,6 @@
 use std::io::{self, BufRead};
 mod lexer;
+mod parser;
 
 fn main() {
     println!("Welcom to Rustkalkulator!");

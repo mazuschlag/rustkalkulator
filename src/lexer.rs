@@ -1,6 +1,6 @@
 #[derive(Debug)]
 pub struct Tokens<'a> {
-    tokens: Vec<Token>,
+    pub tokens: Vec<Token>,
     input: std::str::Chars<'a>
 }
 
@@ -127,7 +127,7 @@ impl<'a> Tokens<'a> {
 }
 
 #[derive(PartialEq, Debug)]
-enum Token {
+pub enum Token {
     LParen,
     RParen,
     Assign,
@@ -139,7 +139,7 @@ enum Token {
 }
 
 #[derive(PartialEq, Debug)]
-enum Operator {
+pub enum Operator {
     Plus,
     Minus,
     Times,
