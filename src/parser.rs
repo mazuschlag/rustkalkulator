@@ -1,14 +1,13 @@
 use super::lexer;
 
 #[derive(Debug)]
-pub enum Node {
-    Start,
-    Sum(Op),
-    Prod(Op),
-    Assign(String),
-    Unary(Op),
+pub enum ParseTree {
+    Sum(Op, Box<ParseTree>, Box<ParseTree>),
+    Prod(Op, Box<ParseTree>, Box<ParseTree>),
+    Assign(String, Box<ParseTree>),
+    Unary(Op, Box<ParseTree>),
     Num(u32),
-    Var(String),
+    Var(String)
 }
 
 #[derive(Debug)]
@@ -20,141 +19,129 @@ pub enum Op {
 }
 
 #[derive(Debug)]
-pub struct ParseTree<'a> {
-    node: Node,
-    left: Option<Result<Box<ParseTree<'a>>, &'a str>>,
-    right: Option<Result<Box<ParseTree<'a>>, &'a str>>
-}
-
-impl<'a> ParseTree<'a> {
-    pub fn new(n: Node) -> Box<ParseTree<'a>> {
-        Box::new(ParseTree {
-            node: n,
-            left: None,
-            right: None,
-        })
-    }
-}
-
-#[derive(Debug)]
 pub struct Parser<'a> {
-    tree: Result<Box<ParseTree<'a>>, &'a str>,
-    tokens: std::vec::IntoIter<lexer::Token>,
+    tree: Result<Box<ParseTree>, &'a str>,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(tokens: Vec<lexer::Token>) -> Parser<'a> {
+impl <'a> Parser<'a> {
+    pub fn new() -> Parser<'a> {
         Parser { 
-            tree: Ok(ParseTree::new(Node::Start)),
-            tokens: tokens.into_iter(),
+            tree: Err("Nothing to parse"),
         }
     }
 
-    pub fn parse(&mut self) {
-        let token = self.tokens.next();
-        let (final_tree, _) = self.expression(token);
-        self.tree = final_tree;
+    pub fn parse(&mut self, tokens: Vec<lexer::Token>) {
+        self.tree = match Parser::expression(tokens.into_iter(), None) {
+            (tree, _, _) => tree
+        }   
     }
 
-    fn expression(&mut self, token: Option<lexer::Token>) -> (Result<Box<ParseTree<'a>>, &'a str>, Option<lexer::Token>) {
-        let (term_tree, mut token) = self.term(token);
+    fn expression(tokens: std::vec::IntoIter<lexer::Token>, token: Option<lexer::Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<lexer::Token>, Option<lexer::Token>) {
+        let (term_result, mut tokens, mut token) = Parser::term(tokens, token);
         if token == None {
-            token = self.tokens.next();
+            token = tokens.next();
         }
-        let tree = match token {
-            Some(lexer::Token::Op(op)) => {
-                match op {
-                    lexer::Operator::Plus | lexer::Operator::Minus => {
-                        token = self.tokens.next();
-                        let node_op = if op == lexer::Operator::Plus { Op::Plus } else { Op::Minus };
-                        let mut expression_tree = ParseTree::new(Node::Sum(node_op));
-                        let (expression_tree_right, token) = self.expression(token);
-                        expression_tree.left = Some(term_tree);
-                        expression_tree.right = Some(expression_tree_right);
-                        (Ok(expression_tree), token)
+        return match term_result { 
+            Err(_) => (term_result, tokens, None),
+            Ok(term_tree) => {
+                match token {
+                    Some(lexer::Token::Op(op)) => {
+                        match op {
+                            lexer::Operator::Plus | lexer::Operator::Minus => {
+                                let node_op = if op == lexer::Operator::Plus { Op::Plus } else { Op::Minus };
+                                match Parser::expression(tokens, None) { 
+                                    (Err(e), tokens, _) => (Err(e), tokens, None), 
+                                    (Ok(expression_tree), tokens, token) => {
+                                        (Ok(Box::new(ParseTree::Sum(node_op, term_tree, expression_tree))), tokens, token)
+                                    }
+                                }
+                            },
+                            _ => {
+                                (Ok(term_tree), tokens, token)
+                            }
+                        }
+                    },
+                    Some(lexer::Token::Assign) => {
+                        match *term_tree {
+                            ParseTree::Var(s) => {
+                                match Parser::expression(tokens, None) {
+                                    (Err(e), tokens, _) => (Err(e), tokens, None),
+                                    (Ok(expression_tree), tokens, token) => {
+                                        (Ok(Box::new(ParseTree::Assign(s, expression_tree))), tokens, token)
+                                    } 
+                                }
+                            },
+                            _ => (Err("Only variables can be assigned to"), tokens, None)
+                        }
                     },
                     _ => {
-                        (term_tree, token)
+                        (Ok(term_tree), tokens, token)
                     }
-                }
-            },
-            Some(lexer::Token::Assign) => {
-                match &term_tree {
-                    Ok(tree) => match &tree.node {
-                        Node::Var(s) => {
-                            token = self.tokens.next();
-                            let mut assign_tree = ParseTree::new(Node::Assign(s.clone()));
-                            let (assign_tree_left, token) = self.expression(token);
-                            assign_tree.left = Some(assign_tree_left);
-                            (Ok(assign_tree), token)
-                        },
-                        _ => (Err("Only variables can be assigned to"), token)
-                    }
-                    _ => (term_tree, token)
-                }
-            },
-            _ => (term_tree, token)
-        };
-        return tree
-    }
-
-    fn term(&mut self, token: Option<lexer::Token>) -> (Result<Box<ParseTree<'a>>, &'a str>, Option<lexer::Token>) {
-        let (factor_tree, mut token) = self.factor(token);
-        if token == None {
-            token = self.tokens.next();
-        }
-        let tree_and_token = match token {
-            Some(lexer::Token::Op(op)) => {
-                match op {
-                    lexer::Operator::Times | lexer::Operator::Divide => {
-                        token = self.tokens.next();
-                        let node_op = if op == lexer::Operator::Times { Op::Times } else { Op::Divide };
-                        let mut term_tree = ParseTree::new(Node::Prod(node_op));
-                        let (right_term_tree, token) = self.term(token);
-                        term_tree.left = Some(factor_tree);
-                        term_tree.right = Some(right_term_tree);
-                        (Ok(term_tree), token)
-                    },
-                    _ => (factor_tree, token)
                 }
             }
-            _ => (factor_tree, token)
-        };
-        return tree_and_token
+        }
     }
 
-    fn factor(&mut self, mut token: Option<lexer::Token>) -> (Result<Box<ParseTree<'a>>, &'a str>, Option<lexer::Token>) {
-        let tree_and_token = match token {
+    fn term(tokens: std::vec::IntoIter<lexer::Token>, token: Option<lexer::Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<lexer::Token>, Option<lexer::Token>) {
+        let (factor_result, mut tokens, mut token) = Parser::factor(tokens, token);
+        if token == None {
+            token = tokens.next();
+        }
+        return match factor_result {
+            Err(_) => (factor_result, tokens, None),
+            Ok(factor_tree) => {
+                match token {
+                    Some(lexer::Token::Op(op)) => {
+                        match op {
+                            lexer::Operator::Times | lexer::Operator::Divide => {
+                                let tree_op = if op == lexer::Operator::Times { Op::Times } else { Op::Divide };
+                                match Parser::term(tokens, None) {
+                                    (Err(e), tokens, _) => (Err(e), tokens, None),
+                                    (Ok(term_tree), tokens, token) => {
+                                        (Ok(Box::new(ParseTree::Prod(tree_op, factor_tree, term_tree))), tokens, token)
+                                    }
+                                }
+                            },
+                            _ => (Ok(factor_tree), tokens, token)
+                        }
+                    }
+                    _ => (Ok(factor_tree), tokens, token)
+                }
+            }
+        }
+    }
+
+    fn factor(mut tokens: std::vec::IntoIter<lexer::Token>, mut token: Option<lexer::Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<lexer::Token>, Option<lexer::Token>) {
+        if token == None {
+            token = tokens.next();
+        }
+        return match token {
             Some(lexer::Token::Num(n)) => {
-             (Ok(ParseTree::new(Node::Num(n))), None)
+                (Ok(Box::new(ParseTree::Num(n))), tokens, None)
             },
             Some(lexer::Token::Ident(i)) => {
-                (Ok(ParseTree::new(Node::Var(i.clone()))), None)
+                (Ok(Box::new(ParseTree::Var(i))), tokens, None)
             },
             Some(lexer::Token::Op(op)) => {
                 match op {
                     lexer::Operator::Plus | lexer::Operator::Minus => {
-                        token = self.tokens.next();
-                        let node_op = if op == lexer::Operator::Plus { Op::Plus } else { Op::Minus };
-                        let mut unary_tree = ParseTree::new(Node::Unary(node_op));
-                        let (fac_tree, t) = self.factor(token);
-                        unary_tree.left = Some(fac_tree);
-                        (Ok(unary_tree), t)
+                        let tree_op = if op == lexer::Operator::Plus { Op::Plus } else { Op::Minus };
+                        match Parser::factor(tokens, None) {
+                            (Err(e), tokens, _) => (Err(e), tokens, None),
+                            (Ok(factor_tree), tokens, token) => (Ok(Box::new(ParseTree::Unary(tree_op, factor_tree))), tokens, token)
+                        }
                     },
-                    _ => (Err("Parse error on token"), None)
+                    _ => (Err("Parse error on token"), tokens, None)
                 }
             },
             Some(lexer::Token::LParen) => {
-                token = self.tokens.next();
-                let (paren_tree, token) = self.expression(token);
-                match token {
-                    Some(lexer::Token::RParen) => (paren_tree, None),
-                    _ => (Err("Missing right parenthesis"), None)
+                match Parser::expression(tokens, None) {
+                    (Ok(expression_tree), tokens, Some(lexer::Token::RParen)) => (Ok(expression_tree), tokens, None),
+                    (_, tokens, _)=> (Err("Missing right parenthesis"), tokens, None)
                 }
             },
-            Some(lexer::Token::Error) => (Err("Unexpected end of input"), None),
-            _ => (Err("Parse error on token"), None)
-        };
-        return tree_and_token
+            Some(lexer::Token::Error) => (Err("Unexpected end of input"), tokens, None),
+            _ => (Err("Parse error on token"), tokens, None)
+        }
     }
 }

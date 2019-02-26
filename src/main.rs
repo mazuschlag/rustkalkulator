@@ -17,8 +17,8 @@ fn main() {
             let mut tokenizer = lexer::Tokens::new(chars);
             tokenizer.tokenize();
             println!("tokens: {:?}", tokenizer);
-            let mut parser = parser::Parser::new(tokenizer.tokens);
-            parser.parse();
+            let mut parser = parser::Parser::new();
+            parser.parse(tokenizer.tokens);
             println!("parse tree: {:?}", parser);
         }
     }
