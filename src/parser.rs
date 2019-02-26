@@ -210,6 +210,14 @@ mod test {
     }
 
     #[test]
+    fn valid_unary_ops() {
+        let valid_tokens = unary_tokens();
+        let mut valid_parser = Parser::new();
+        valid_parser.parse(valid_tokens);
+        assert_eq!(valid_parser.tree.unwrap(), Box::new(ParseTree::Unary(Op::Minus, Box::new(ParseTree::Num(1)))));
+    }
+
+    #[test]
     fn valid_parens() {
         let valid_tokens = valid_parens_tokens();
         let mut valid_parser = Parser::new();
@@ -270,6 +278,10 @@ mod test {
 
     fn order_tree() -> Box<ParseTree> {
         Box::new(ParseTree::Sum(Op::Minus, Box::new(ParseTree::Num(3)), Box::new(ParseTree::Prod(Op::Divide, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))))
+    }
+
+    fn unary_tokens() -> Vec<lexer::Token> {
+        vec![lexer::Token::Op(lexer::Operator::Minus), lexer::Token::Num(1)]
     }
 
     fn valid_parens_tokens() -> Vec<lexer::Token> {
