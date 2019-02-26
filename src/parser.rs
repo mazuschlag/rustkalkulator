@@ -9,7 +9,6 @@ pub enum Node {
     Unary(Op),
     Num(u32),
     Var(String),
-    End
 }
 
 #[derive(Debug)]
@@ -41,7 +40,6 @@ impl<'a> ParseTree<'a> {
 pub struct Parser<'a> {
     tree: Result<Box<ParseTree<'a>>, &'a str>,
     tokens: std::vec::IntoIter<lexer::Token>,
-    token: Option<lexer::Token>
 }
 
 impl<'a> Parser<'a> {
@@ -49,29 +47,34 @@ impl<'a> Parser<'a> {
         Parser { 
             tree: Ok(ParseTree::new(Node::Start)),
             tokens: tokens.into_iter(),
-            token: None
         }
     }
 
     pub fn parse(&mut self) {
-        self.tree = self.expression();
+        let token = self.tokens.next();
+        let (final_tree, _) = self.expression(token);
+        self.tree = final_tree;
     }
 
-    fn expression(&mut self) -> Result<Box<ParseTree<'a>>, &'a str> {
-        let term_tree = self.term();
-        println!("expression term_tree: {:?}", term_tree);
-        match &self.token {
+    fn expression(&mut self, token: Option<lexer::Token>) -> (Result<Box<ParseTree<'a>>, &'a str>, Option<lexer::Token>) {
+        let (term_tree, mut token) = self.term(token);
+        if token == None {
+            token = self.tokens.next();
+        }
+        let tree = match token {
             Some(lexer::Token::Op(op)) => {
                 match op {
                     lexer::Operator::Plus | lexer::Operator::Minus => {
-                        let node_op = if op == &lexer::Operator::Plus { Op::Plus } else { Op::Minus };
+                        token = self.tokens.next();
+                        let node_op = if op == lexer::Operator::Plus { Op::Plus } else { Op::Minus };
                         let mut expression_tree = ParseTree::new(Node::Sum(node_op));
+                        let (expression_tree_right, token) = self.expression(token);
                         expression_tree.left = Some(term_tree);
-                        expression_tree.right = Some(self.expression());
-                        return Ok(expression_tree)
+                        expression_tree.right = Some(expression_tree_right);
+                        (Ok(expression_tree), token)
                     },
                     _ => {
-                        return term_tree;
+                        (term_tree, token)
                     }
                 }
             },
@@ -79,73 +82,80 @@ impl<'a> Parser<'a> {
                 match &term_tree {
                     Ok(tree) => match &tree.node {
                         Node::Var(s) => {
-                            self.token = self.tokens.next();
+                            token = self.tokens.next();
                             let mut assign_tree = ParseTree::new(Node::Assign(s.clone()));
+                            let (assign_tree_right, token) = self.expression(token);
                             assign_tree.left = Some(term_tree);
-                            assign_tree.right = Some(self.expression());
-                            return Ok(assign_tree)
+                            assign_tree.right = Some(assign_tree_right);
+                            (Ok(assign_tree), token)
                         },
-                        _ => return Err("Only variables can be assigned to")
+                        _ => (Err("Only variables can be assigned to"), token)
                     }
-                    _ => return term_tree
+                    _ => (term_tree, token)
                 }
             },
-            _ => return term_tree
-        };
-    }
-
-    fn term(&mut self) -> Result<Box<ParseTree<'a>>, &'a str> {
-        let factor_tree = self.factor();
-        println!("term factor_tree: {:?}", factor_tree);
-        let tree = match &self.token {
-            Some(lexer::Token::Op(op)) => {
-                match op {
-                    lexer::Operator::Times | lexer::Operator::Divide => {
-                        let node_op = if op == &lexer::Operator::Times { Op::Times } else { Op::Divide };
-                        let mut term_tree = ParseTree::new(Node::Prod(node_op));
-                        term_tree.left = Some(factor_tree);
-                        term_tree.right = Some(self.term());
-                        Ok(term_tree)
-                    },
-                    _ => factor_tree
-                }
-            }
-            _ => factor_tree
+            _ => (term_tree, token)
         };
         return tree
     }
 
-    fn factor(&mut self) -> Result<Box<ParseTree<'a>>, &'a str> {
-        println!("factor before token: {:?}", self.token);
-        self.token = self.tokens.next();
-        println!("factor after token: {:?}", self.token);
-        let tree = match &self.token {
+    fn term(&mut self, token: Option<lexer::Token>) -> (Result<Box<ParseTree<'a>>, &'a str>, Option<lexer::Token>) {
+        let (factor_tree, mut token) = self.factor(token);
+        if token == None {
+            token = self.tokens.next();
+        }
+        let tree_and_token = match token {
+            Some(lexer::Token::Op(op)) => {
+                match op {
+                    lexer::Operator::Times | lexer::Operator::Divide => {
+                        token = self.tokens.next();
+                        let node_op = if op == lexer::Operator::Times { Op::Times } else { Op::Divide };
+                        let mut term_tree = ParseTree::new(Node::Prod(node_op));
+                        let (right_term_tree, token) = self.term(token);
+                        term_tree.left = Some(factor_tree);
+                        term_tree.right = Some(right_term_tree);
+                        (Ok(term_tree), token)
+                    },
+                    _ => (factor_tree, token)
+                }
+            }
+            _ => (factor_tree, token)
+        };
+        return tree_and_token
+    }
+
+    fn factor(&mut self, mut token: Option<lexer::Token>) -> (Result<Box<ParseTree<'a>>, &'a str>, Option<lexer::Token>) {
+        let tree_and_token = match token {
             Some(lexer::Token::Num(n)) => {
-             Ok(ParseTree::new(Node::Num(*n)))
+             (Ok(ParseTree::new(Node::Num(n))), None)
             },
-            Some(lexer::Token::Ident(i)) => Ok(ParseTree::new(Node::Var(i.clone()))),
+            Some(lexer::Token::Ident(i)) => {
+                (Ok(ParseTree::new(Node::Var(i.clone()))), None)
+            },
             Some(lexer::Token::Op(op)) => {
                 match op {
                     lexer::Operator::Plus | lexer::Operator::Minus => {
-                        let node_op = if *op == lexer::Operator::Plus { Op::Plus } else { Op::Minus };
-                     Ok(ParseTree::new(Node::Unary(node_op)))
+                        token = self.tokens.next();
+                        let node_op = if op == lexer::Operator::Plus { Op::Plus } else { Op::Minus };
+                        let mut unary_tree = ParseTree::new(Node::Unary(node_op));
+                        let (fac_tree, t) = self.factor(token);
+                        unary_tree.left = Some(fac_tree);
+                        (Ok(unary_tree), t)
                     },
-                    _ => Err("Parse error on token")
+                    _ => (Err("Parse error on token"), None)
                 }
             },
             Some(lexer::Token::LParen) => {
-                let paren_tree = self.expression();
-                match self.token {
-                    Some(lexer::Token::RParen) => paren_tree,
-                    _ => Err("Missing right parenthesis")
+                token = self.tokens.next();
+                let (paren_tree, token) = self.expression(token);
+                match token {
+                    Some(lexer::Token::RParen) => (paren_tree, None),
+                    _ => (Err("Missing right parenthesis"), None)
                 }
             },
-            Some(lexer::Token::Error) => Err("Unexpected end of input"),
-            Some(lexer::Token::End) => Ok(ParseTree::new(Node::End)),
-            _ => Err("Parse error on token")
+            Some(lexer::Token::Error) => (Err("Unexpected end of input"), None),
+            _ => (Err("Parse error on token"), None)
         };
-        self.token = self.tokens.next();
-        println!("factor tree: {:?}", tree);
-        return tree;
+        return tree_and_token
     }
 }

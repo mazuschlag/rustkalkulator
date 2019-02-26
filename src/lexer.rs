@@ -126,7 +126,7 @@ impl<'a> Tokens<'a> {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Token {
     LParen,
     RParen,
@@ -138,7 +138,7 @@ pub enum Token {
     End,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum Operator {
     Plus,
     Minus,
