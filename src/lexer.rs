@@ -151,7 +151,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tokenize_operators() {
+    fn valid_operators() {
         let string = "+-*/";
         let chars = string.chars();
         let mut tokenizer = Tokens::new(chars);
@@ -160,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_parens() {
+    fn valid_parens() {
         let string = "()";
         let chars = string.chars();
         let mut tokenizer = Tokens::new(chars);
@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(tokenizer.tokens, paren_tokens());
     }
     #[test]
-    fn tokenize_number() {
+    fn valid_number() {
         let string = "405";
         let chars = string.chars();
         let mut tokenizer = Tokens::new(chars);
@@ -177,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_ident() {
+    fn valid_ident() {
         let string = "foo";
         let chars = string.chars();
         let mut tokenizer = Tokens::new(chars);
@@ -186,7 +186,7 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_invalid_num() {
+    fn invalid_num() {
         let string_1 = "1invalid";
         let chars_1 = string_1.chars();
         let mut tokenizer_1 = Tokens::new(chars_1);
@@ -199,7 +199,7 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_invalid_ident() {
+    fn invalid_ident() {
         let string_1 = "b1invalid";
         let chars_1 = string_1.chars();
         let mut tokenizer_1 = Tokens::new(chars_1);
@@ -212,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn tokenize_no_spaces() {
+    fn valid_no_spaces() {
         let string = "x=3-(42/bar)";
         let chars = string.chars();
         let mut tokenizer = Tokens::new(chars);
@@ -225,7 +225,8 @@ mod tests {
             Token::Op(Operator::Minus), 
             Token::Op(Operator::Times), 
             Token::Op(Operator::Divide), 
-            Token::End]
+            Token::End
+        ]
     }
 
     fn paren_tokens() -> Vec<Token> {
@@ -250,6 +251,7 @@ mod tests {
             Token::Op(Operator::Divide), 
             Token::Ident(String::from("bar")), 
             Token::RParen, 
-            Token::End]
+            Token::End
+        ]
     }
 }
