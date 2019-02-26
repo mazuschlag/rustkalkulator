@@ -84,9 +84,8 @@ impl<'a> Parser<'a> {
                         Node::Var(s) => {
                             token = self.tokens.next();
                             let mut assign_tree = ParseTree::new(Node::Assign(s.clone()));
-                            let (assign_tree_right, token) = self.expression(token);
-                            assign_tree.left = Some(term_tree);
-                            assign_tree.right = Some(assign_tree_right);
+                            let (assign_tree_left, token) = self.expression(token);
+                            assign_tree.left = Some(assign_tree_left);
                             (Ok(assign_tree), token)
                         },
                         _ => (Err("Only variables can be assigned to"), token)
