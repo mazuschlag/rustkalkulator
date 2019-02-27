@@ -160,9 +160,16 @@ mod tests {
     fn valid_operators() {
         let string = "+-*/";
         let chars = string.chars();
+        let valid_tokens = vec![
+            Token::Op(Operator::Plus), 
+            Token::Op(Operator::Minus), 
+            Token::Op(Operator::Times), 
+            Token::Op(Operator::Divide), 
+            Token::End
+        ];
         let mut tokenizer = Tokens::new(chars);
         tokenizer.tokenize();
-        assert_eq!(tokenizer.tokens, operator_tokens());
+        assert_eq!(tokenizer.tokens, valid_tokens);
     }
 
     #[test]
@@ -171,7 +178,7 @@ mod tests {
         let chars = string.chars();
         let mut tokenizer = Tokens::new(chars);
         tokenizer.tokenize();
-        assert_eq!(tokenizer.tokens, paren_tokens());
+        assert_eq!(tokenizer.tokens, vec![Token::LParen, Token::RParen, Token::End]);
     }
     #[test]
     fn valid_number() {
@@ -179,7 +186,7 @@ mod tests {
         let chars = string.chars();
         let mut tokenizer = Tokens::new(chars);
         tokenizer.tokenize();
-        assert_eq!(tokenizer.tokens, number_token());
+        assert_eq!(tokenizer.tokens, vec![Token::Num(405), Token::End]);
     }
 
     #[test]
@@ -188,7 +195,7 @@ mod tests {
         let chars = string.chars();
         let mut tokenizer = Tokens::new(chars);
         tokenizer.tokenize();
-        assert_eq!(tokenizer.tokens, ident_token());
+        assert_eq!(tokenizer.tokens, vec![Token::Ident(String::from("foo")), Token::End]);
     }
 
     #[test]
@@ -213,34 +220,8 @@ mod tests {
     fn valid_no_spaces() {
         let string = "x=3-(42/bar)";
         let chars = string.chars();
-        let mut tokenizer = Tokens::new(chars);
-        tokenizer.tokenize();
-        assert_eq!(tokenizer.tokens, no_spaces_tokens());
-    }
-
-    fn operator_tokens() -> Vec<Token> {
-        vec![Token::Op(Operator::Plus), 
-            Token::Op(Operator::Minus), 
-            Token::Op(Operator::Times), 
-            Token::Op(Operator::Divide), 
-            Token::End
-        ]
-    }
-
-    fn paren_tokens() -> Vec<Token> {
-        vec![Token::LParen, Token::RParen, Token::End]
-    }
-
-    fn number_token() -> Vec<Token> {
-        vec![Token::Num(405), Token::End]
-    }
-
-    fn ident_token() -> Vec<Token> {
-        vec![Token::Ident(String::from("foo")), Token::End]
-    }
-
-    fn no_spaces_tokens() -> Vec<Token> {
-        vec![Token::Ident(String::from("x")), 
+        let valid_tokens = vec![
+            Token::Ident(String::from("x")), 
             Token::Assign, 
             Token::Num(3), 
             Token::Op(Operator::Minus), 
@@ -250,6 +231,9 @@ mod tests {
             Token::Ident(String::from("bar")), 
             Token::RParen, 
             Token::End
-        ]
+        ];
+        let mut tokenizer = Tokens::new(chars);
+        tokenizer.tokenize();
+        assert_eq!(tokenizer.tokens, valid_tokens);
     }
 }
