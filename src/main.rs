@@ -6,7 +6,7 @@ mod evaluator;
 
 fn main() {
     let mut symbol_table = HashMap::new();
-    println!("Welcom to Rustkalkulator!");
+    println!("Welcome to Rustkalkulator!");
     println!("Press 'q' to quit");
     loop {
         let stdin = io::stdin();
