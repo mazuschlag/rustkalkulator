@@ -1,8 +1,11 @@
 use std::io::{self, BufRead};
+use std::collections::HashMap;
 mod lexer;
 mod parser;
+mod evaluator;
 
 fn main() {
+    let mut symbol_table = HashMap::new();
     println!("Welcom to Rustkalkulator!");
     println!("Press 'q' to quit");
     loop {
@@ -16,10 +19,12 @@ fn main() {
             let chars = string.chars();
             let mut tokenizer = lexer::Tokens::new(chars);
             tokenizer.tokenize();
-            println!("tokens: {:?}", tokenizer);
             let mut parser = parser::Parser::new();
             parser.parse(tokenizer.tokens);
-            println!("parse tree: {:?}", parser);
+            let mut evaluator = evaluator::Evaluator::new(symbol_table);
+            let answer = evaluator.evaluate(*parser.tree.unwrap());
+            println!("{}", answer.unwrap());
+            symbol_table = evaluator.symbols;
         }
     }
 }
