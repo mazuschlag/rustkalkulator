@@ -64,20 +64,20 @@ impl<'a> Tokens<'a> {
                 match c {
                     c if c.is_digit(10) => self.into_number(c, num),
                     c if c.is_whitespace() => {
-                        self.tokens.push(Token::Num(num.parse::<u32>().unwrap()));
+                        self.tokens.push(Token::Num(num.parse::<i32>().unwrap()));
                         self.tokenize();
                     },
                     c if "+-*/".contains(c) => {
-                        self.tokens.push(Token::Num(num.parse::<u32>().unwrap()));
+                        self.tokens.push(Token::Num(num.parse::<i32>().unwrap()));
                         self.into_operator(c);
                     },
                     '=' => { 
-                        self.tokens.push(Token::Num(num.parse::<u32>().unwrap()));
+                        self.tokens.push(Token::Num(num.parse::<i32>().unwrap()));
                         self.tokens.push(Token::Assign);
                         self.tokenize();
                     },
                     ')' => {
-                        self.tokens.push(Token::Num(num.parse::<u32>().unwrap()));
+                        self.tokens.push(Token::Num(num.parse::<i32>().unwrap()));
                         self.tokens.push(Token::RParen);
                         self.tokenize();
                     },
@@ -85,7 +85,7 @@ impl<'a> Tokens<'a> {
                 };
             },
             None => {
-                self.tokens.push(Token::Num(num.parse::<u32>().unwrap()));
+                self.tokens.push(Token::Num(num.parse::<i32>().unwrap()));
                 self.tokens.push(Token::End);
             }
         };
@@ -133,7 +133,7 @@ pub enum Token {
     Assign,
     Op(Operator),
     Ident(String),
-    Num(u32),
+    Num(i32),
     Error,
     End,
 }
