@@ -3,53 +3,55 @@ use super::parser::SumOp;
 use super::parser::ProdOp;
 use std::collections::HashMap;
 
-pub struct Evaluator {
-    pub symbols: HashMap<String, i32>
-}
-
-impl Evaluator {
-    pub fn new(sym: HashMap<String, i32>) -> Evaluator {
-        Evaluator {
-            symbols: sym
-        }
+pub fn evaluate<'a>(parsed: Result<Box<ParseTree>, &'a str>, symbols: HashMap<String, i32>) -> (Result<i32, &'a str>, HashMap<String, i32>) {
+    match parsed {
+        Err(e) => (Err(e), symbols),
+        Ok(parse_tree) => evaluate_tree(*parse_tree, symbols)
     }
 
-    pub fn evaluate(&mut self, parse_tree: ParseTree) -> Result<i32, &str> {
-        match parse_tree {
-            ParseTree::Sum(op, left, right) => {
-                let x = self.evaluate(*left).unwrap();
-                let y = self.evaluate(*right).unwrap();
-                match op {
-                    SumOp::Plus => Ok(x + y),
-                    SumOp::Minus => Ok(x - y)
-                }
-            },
-            ParseTree::Prod(op, left, right) => {
-                let x = self.evaluate(*left).unwrap();
-                let y = self.evaluate(*right).unwrap();
-                match op {
-                    ProdOp::Times => Ok(x * y),
-                    ProdOp::Divide => Ok(x / y)
-                }
-            },
-            ParseTree::Unary(op, tree) => {
-                let x = self.evaluate(*tree).unwrap();
-                match op {
-                    SumOp::Plus => Ok(x),
-                    SumOp::Minus => Ok(-x)
-                }
-            },
-            ParseTree::Num(x) => Ok(x),
-            ParseTree::Assign(s, tree) => {
-                let x = self.evaluate(*tree).unwrap();
-                self.symbols.insert(s, x);
-                Ok(x)
-            },
-            ParseTree::Var(s) => {
-                match self.symbols.get(&s) {
-                    Some(x) => Ok(*x),
-                    None => Err("Undefined variable")
-                }
+}
+
+fn evaluate_tree<'a>(parse_tree: ParseTree, symbols: HashMap<String, i32>) -> (Result<i32, &'a str>, HashMap<String, i32>) {
+    match parse_tree {
+        ParseTree::Sum(op, left, right) => {
+            let (x, symbols) = evaluate_tree(*left, symbols);
+            if x.is_err() { return (x, symbols) };
+            let (y, symbols) = evaluate_tree(*right, symbols);
+            if y.is_err() { return (y, symbols) };
+            match op {
+                SumOp::Plus => (Ok(x.unwrap() + y.unwrap()), symbols),
+                SumOp::Minus => (Ok(x.unwrap() - y.unwrap()), symbols)
+            }
+        },
+        ParseTree::Prod(op, left, right) => {
+            let (x, symbols) = evaluate_tree(*left, symbols);
+            if x.is_err() { return (x, symbols) };
+            let (y, symbols) = evaluate_tree(*right, symbols);
+            if y.is_err() { return (y, symbols) };
+            match op {
+                ProdOp::Times => (Ok(x.unwrap() * y.unwrap()), symbols),
+                ProdOp::Divide => (Ok(x.unwrap() / y.unwrap()), symbols)
+            }
+        },
+        ParseTree::Unary(op, tree) => {
+            let (x, symbols) = evaluate_tree(*tree, symbols);
+            if x.is_err() { return (x, symbols) };
+            match op {
+                SumOp::Plus => (Ok(x.unwrap()), symbols),
+                SumOp::Minus => (Ok(-x.unwrap()), symbols)
+            }
+        },
+        ParseTree::Num(x) => (Ok(x), symbols),
+        ParseTree::Assign(s, tree) => {
+            let (x, mut symbols) = evaluate_tree(*tree, symbols);
+            if x.is_err() { return (x, symbols) };
+            symbols.insert(s, x.unwrap());
+            (Ok(x.unwrap()), symbols)
+        },
+        ParseTree::Var(s) => {
+            match symbols.get(&s) {
+                Some(x) => (Ok(*x), symbols),
+                None => (Err("Undefined variable"), symbols)
             }
         }
     }

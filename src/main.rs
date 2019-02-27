@@ -21,10 +21,12 @@ fn main() {
             tokenizer.tokenize();
             let mut parser = parser::Parser::new();
             parser.parse(tokenizer.tokens);
-            let mut evaluator = evaluator::Evaluator::new(symbol_table);
-            let answer = evaluator.evaluate(*parser.tree.unwrap());
-            println!("{}", answer.unwrap());
-            symbol_table = evaluator.symbols;
+            let (answer, symbol_update) = evaluator::evaluate(parser.tree, symbol_table);
+            match answer {
+                Ok(a) => println!("{}", a),
+                Err(e) => println!("{}", e)
+            };
+            symbol_table = symbol_update;
         }
     }
 }
