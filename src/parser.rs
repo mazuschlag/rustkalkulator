@@ -24,14 +24,14 @@ pub enum ProdOp {
 }
 
 #[derive(Debug)]
-pub struct Parser<'a> {
-    pub tree: Result<Box<ParseTree>, &'a str>,
+pub struct Parser {
+    pub tree: Result<Box<ParseTree>, String>,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new() -> Parser<'a> {
+impl Parser {
+    pub fn new() -> Parser {
         Parser { 
-            tree: Err("Nothing to parse"),
+            tree: Err(String::from("Nothing to parse")),
         }
     }
 
@@ -41,7 +41,7 @@ impl<'a> Parser<'a> {
         }   
     }
 
-    fn expression(tokens: std::vec::IntoIter<Token>, token: Option<Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<Token>, Option<Token>) {
+    fn expression(tokens: std::vec::IntoIter<Token>, token: Option<Token>) -> (Result<Box<ParseTree>, String>, std::vec::IntoIter<Token>, Option<Token>) {
         let (term_result, mut tokens, mut token) = Parser::term(tokens, token);
         if token == None {
             token = tokens.next();
@@ -76,10 +76,10 @@ impl<'a> Parser<'a> {
                                     } 
                                 }
                             },
-                            _ => (Err("Only variables can be assigned to"), tokens, None)
+                            _ => (Err(String::from("Only variables can be assigned to")), tokens, None)
                         }
                     },
-                    Some(Token::Error) => (Err("Unexpected end of input"), tokens, None),
+                    Some(Token::Error(s)) => (Err(format!("Unexpected end of input: {}", s)), tokens, None),
                     _ => {
                         (Ok(term_tree), tokens, token)
                     }
@@ -88,7 +88,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn term(tokens: std::vec::IntoIter<Token>, token: Option<Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<Token>, Option<Token>) {
+    fn term(tokens: std::vec::IntoIter<Token>, token: Option<Token>) -> (Result<Box<ParseTree>, String>, std::vec::IntoIter<Token>, Option<Token>) {
         let (factor_result, mut tokens, mut token) = Parser::factor(tokens, token);
         if token == None {
             token = tokens.next();
@@ -111,14 +111,14 @@ impl<'a> Parser<'a> {
                             _ => (Ok(factor_tree), tokens, token)
                         }
                     },
-                    Some(Token::Error) => (Err("Unexpected end of input"), tokens, None),
+                    Some(Token::Error(s)) => (Err(format!("Unexpected end of input: {}", s)), tokens, None),
                     _ => (Ok(factor_tree), tokens, token)
                 }
             }
         }
     }
 
-    fn factor(mut tokens: std::vec::IntoIter<Token>, mut token: Option<Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<Token>, Option<Token>) {
+    fn factor(mut tokens: std::vec::IntoIter<Token>, mut token: Option<Token>) -> (Result<Box<ParseTree>, String>, std::vec::IntoIter<Token>, Option<Token>) {
         if token == None {
             token = tokens.next();
         }
@@ -138,17 +138,17 @@ impl<'a> Parser<'a> {
                             (Ok(factor_tree), tokens, token) => (Ok(Box::new(ParseTree::Unary(tree_op, factor_tree))), tokens, token)
                         }
                     },
-                    _ => (Err("Parse error on token"), tokens, None)
+                    _ => (Err(String::from("Invalid unary operator")), tokens, None)
                 }
             },
             Some(Token::LParen) => {
                 match Parser::expression(tokens, None) {
                     (Ok(expression_tree), tokens, Some(Token::RParen)) => (Ok(expression_tree), tokens, None),
-                    (_, tokens, _)=> (Err("Missing right parenthesis"), tokens, None)
+                    (_, tokens, _)=> (Err(String::from("Missing right parenthesis")), tokens, None)
                 }
             },
-            Some(Token::Error) => (Err("Unexpected end of input"), tokens, None),
-            _ => (Err("Parse error on token"), tokens, None)
+            Some(Token::Error(s)) => (Err(format!("Unexpected end of input: {}", s)), tokens, None),
+            _ => (Err(String::from("Parse error on token")), tokens, None)
         }
     }
 }
@@ -314,7 +314,7 @@ mod test {
 
     fn error_tokens() -> Vec<Token> {
         vec![Token::Num(3),
-            Token::Error,
+            Token::Error(String::from("$")),
             Token::Ident(String::from("x"))
         ]
     }

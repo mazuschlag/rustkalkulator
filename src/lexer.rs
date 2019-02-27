@@ -39,7 +39,7 @@ impl<'a> Tokens<'a> {
                         self.into_identifier(c, ident);
                     },
                     c if c.is_whitespace() => self.tokenize(),
-                    _ => self.tokens.push(Token::Error),
+                    c => self.tokens.push(Token::Error(c.to_string())),
                 };
             },
             None => self.tokens.push(Token::End)
@@ -81,7 +81,10 @@ impl<'a> Tokens<'a> {
                         self.tokens.push(Token::RParen);
                         self.tokenize();
                     },
-                    _ => self.tokens.push(Token::Error)
+                    c => { 
+                        num.push(c);
+                        self.tokens.push(Token::Error(num));
+                    }
                 };
             },
             None => {
@@ -115,7 +118,10 @@ impl<'a> Tokens<'a> {
                         self.tokens.push(Token::RParen);
                         self.tokenize();
                     },
-                    _ => self.tokens.push(Token::Error)
+                    c => {
+                        ident.push(c);
+                        self.tokens.push(Token::Error(ident));
+                    }
                 };
             },
             None => { 
@@ -134,7 +140,7 @@ pub enum Token {
     Op(Operator),
     Ident(String),
     Num(i32),
-    Error,
+    Error(String),
     End,
 }
 
@@ -187,28 +193,20 @@ mod tests {
 
     #[test]
     fn invalid_num() {
-        let string_1 = "1invalid";
-        let chars_1 = string_1.chars();
-        let mut tokenizer_1 = Tokens::new(chars_1);
-        let string_2 = "1(invalid";
-        let chars_2 = string_2.chars();
-        let mut tokenizer_2 = Tokens::new(chars_2);
-        tokenizer_1.tokenize();
-        tokenizer_2.tokenize();
-        assert_eq!(tokenizer_1.tokens, tokenizer_2.tokens);
+        let string = "1invalid";
+        let chars = string.chars();
+        let mut tokenizer = Tokens::new(chars);
+        tokenizer.tokenize();
+        assert_eq!(tokenizer.tokens, vec![Token::Error(String::from("1i"))]);
     }
 
     #[test]
     fn invalid_ident() {
-        let string_1 = "b1invalid";
-        let chars_1 = string_1.chars();
-        let mut tokenizer_1 = Tokens::new(chars_1);
-        let string_2 = "b(invalid";
-        let chars_2 = string_2.chars();
-        let mut tokenizer_2 = Tokens::new(chars_2);
-        tokenizer_1.tokenize();
-        tokenizer_2.tokenize();
-        assert_eq!(tokenizer_1.tokens, tokenizer_2.tokens);
+        let string = "b1nvalid";
+        let chars = string.chars();
+        let mut tokenizer = Tokens::new(chars);
+        tokenizer.tokenize();
+        assert_eq!(tokenizer.tokens, vec![Token::Error(String::from("b1"))]);
     }
 
     #[test]

@@ -3,7 +3,7 @@ use super::parser::SumOp;
 use super::parser::ProdOp;
 use std::collections::HashMap;
 
-pub fn evaluate<'a>(parsed: Result<Box<ParseTree>, &'a str>, symbols: HashMap<String, i32>) -> (Result<i32, &'a str>, HashMap<String, i32>) {
+pub fn evaluate<'a>(parsed: Result<Box<ParseTree>, String>, symbols: HashMap<String, i32>) -> (Result<i32, String>, HashMap<String, i32>) {
     match parsed {
         Err(e) => (Err(e), symbols),
         Ok(parse_tree) => evaluate_tree(*parse_tree, symbols)
@@ -11,7 +11,7 @@ pub fn evaluate<'a>(parsed: Result<Box<ParseTree>, &'a str>, symbols: HashMap<St
 
 }
 
-fn evaluate_tree<'a>(parse_tree: ParseTree, symbols: HashMap<String, i32>) -> (Result<i32, &'a str>, HashMap<String, i32>) {
+fn evaluate_tree<'a>(parse_tree: ParseTree, symbols: HashMap<String, i32>) -> (Result<i32, String>, HashMap<String, i32>) {
     match parse_tree {
         ParseTree::Sum(op, left, right) => {
             let (x, symbols) = evaluate_tree(*left, symbols);
@@ -43,15 +43,16 @@ fn evaluate_tree<'a>(parse_tree: ParseTree, symbols: HashMap<String, i32>) -> (R
         },
         ParseTree::Num(x) => (Ok(x), symbols),
         ParseTree::Assign(s, tree) => {
-            let (x, mut symbols) = evaluate_tree(*tree, symbols);
-            if x.is_err() { return (x, symbols) };
-            symbols.insert(s, x.unwrap());
-            (Ok(x.unwrap()), symbols)
+            let (eval, mut symbols) = evaluate_tree(*tree, symbols);
+            if eval.is_err() { return (eval, symbols) };
+            let x = eval.unwrap();
+            symbols.insert(s, x);
+            (Ok(x), symbols)
         },
         ParseTree::Var(s) => {
             match symbols.get(&s) {
                 Some(x) => (Ok(*x), symbols),
-                None => (Err("Undefined variable"), symbols)
+                None => (Err(String::from("Undefined variable")), symbols)
             }
         }
     }
