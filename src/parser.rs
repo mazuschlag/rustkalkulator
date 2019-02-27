@@ -257,7 +257,7 @@ mod test {
     }
 
     #[test]
-    fn valid_unary_ops() {
+    fn valid_unary() {
         let valid_tokens =  vec![Token::Op(Operator::Minus), Token::Num(1)];
         let mut valid_parser = Parser::new();
         valid_parser.parse(valid_tokens);
@@ -265,7 +265,7 @@ mod test {
     }
 
     #[test]
-    fn invalid_unary_ops() {
+    fn invalid_unary() {
         let invalid_tokens = vec![Token::Op(Operator::Times), Token::Num(1)];
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);

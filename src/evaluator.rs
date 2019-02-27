@@ -57,3 +57,8 @@ fn evaluate_tree<'a>(parse_tree: ParseTree, symbols: HashMap<String, i32>) -> (R
         }
     }
 }
+
+mod test {
+    use super::*;
+    
+}
