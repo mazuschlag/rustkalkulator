@@ -52,7 +52,7 @@ fn evaluate_tree<'a>(parse_tree: ParseTree, symbols: HashMap<String, i32>) -> (R
         ParseTree::Var(s) => {
             match symbols.get(&s) {
                 Some(x) => (Ok(*x), symbols),
-                None => (Err(String::from("Undefined variable")), symbols)
+                None => (Err(format!("Undefined variable: {}", s)), symbols)
             }
         }
     }
@@ -143,6 +143,6 @@ mod test {
         ));
         let symbols = HashMap::new();
         let (result, _) = evaluate_tree(*valid_tree, symbols);
-        assert!(result.is_err(), "Undefined variable"); 
+        assert!(result.is_err(), "Undefined variable: x"); 
     }
 }
