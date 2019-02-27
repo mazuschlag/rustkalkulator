@@ -111,7 +111,7 @@ impl Parser {
                             _ => (Ok(factor_tree), tokens, token)
                         }
                     },
-                    Some(Token::Error(s)) => (Err(format!("Unexpected end of input: {}", s)), tokens, None),
+                    Some(Token::Error(s)) => (Err(format!("Parse error on token: {}", s)), tokens, None),
                     _ => (Ok(factor_tree), tokens, token)
                 }
             }
@@ -147,8 +147,8 @@ impl Parser {
                     (_, tokens, _)=> (Err(String::from("Missing right parenthesis")), tokens, None)
                 }
             },
-            Some(Token::Error(s)) => (Err(format!("Unexpected end of input: {}", s)), tokens, None),
-            _ => (Err(String::from("Parse error on token")), tokens, None)
+            Some(Token::Error(s)) => (Err(format!("Parse error on token: {}", s)), tokens, None),
+            _ => (Err(String::from("Unexpected end of input")), tokens, None)
         }
     }
 }
@@ -186,7 +186,7 @@ mod test {
         let invalid_tokens = invalid_expression_tokens(Operator::Plus);
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);
-        assert!(invalid_parser.tree.is_err(), "Parse error on token");
+        assert!(invalid_parser.tree.is_err(), "Unexpected end of input");
     }
 
     #[test]
@@ -202,7 +202,7 @@ mod test {
         let invalid_tokens = invalid_expression_tokens(Operator::Times);
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);
-        assert!(invalid_parser.tree.is_err(), "Parse error on token");
+        assert!(invalid_parser.tree.is_err(), "Unexpected end of input");
     }
 
     #[test]
