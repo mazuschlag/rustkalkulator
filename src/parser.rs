@@ -159,15 +159,27 @@ mod test {
     
     #[test]
     fn valid_assign() {
-        let valid_tokens = valid_assign_tokens();
+        let valid_tokens = vec![
+            Token::Ident(String::from("x")), 
+            Token::Assign, 
+            Token::Num(1)
+        ];
+        let valid_tree = Box::new(
+            ParseTree::Assign(String::from("x"), 
+            Box::new(ParseTree::Num(1)))
+        );
         let mut valid_parser = Parser::new();
         valid_parser.parse(valid_tokens);
-        assert_eq!(valid_parser.tree.unwrap(), valid_assign_tree());
+        assert_eq!(valid_parser.tree.unwrap(), valid_tree);
     }
 
     #[test]
     fn invalid_assign() {
-        let invalid_tokens = invalid_assign_tokens();
+        let invalid_tokens = vec![
+            Token::Num(3),
+            Token::Assign, 
+            Token::Ident(String::from("x"))
+        ];
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);
         assert!(invalid_parser.tree.is_err(), "Only variables can be assigned to");
@@ -175,15 +187,23 @@ mod test {
 
     #[test]
     fn valid_sum() {
-        let valid_tokens = valid_expression_tokens(Operator::Plus);
+        let valid_tokens = vec![
+            Token::Num(1),
+            Token::Op(Operator::Plus),
+            Token::Num(2)
+        ];
+        let valid_tree =  Box::new(ParseTree::Sum(
+            SumOp::Plus, Box::new(ParseTree::Num(1)), 
+            Box::new(ParseTree::Num(2))
+        ));
         let mut valid_parser = Parser::new();
         valid_parser.parse(valid_tokens);
-        assert_eq!(valid_parser.tree.unwrap(), valid_expression_tree(SumOp::Plus));
+        assert_eq!(valid_parser.tree.unwrap(), valid_tree);
     }
 
     #[test]
     fn invalid_sum() {
-        let invalid_tokens = invalid_expression_tokens(Operator::Plus);
+        let invalid_tokens = vec![Token::Num(3), Token::Op(Operator::Plus)];
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);
         assert!(invalid_parser.tree.is_err(), "Unexpected end of input");
@@ -191,15 +211,24 @@ mod test {
 
     #[test]
     fn valid_product() {
-        let valid_tokens = valid_expression_tokens(Operator::Times);
+        let valid_tokens = vec![
+            Token::Num(1),
+            Token::Op(Operator::Times),
+            Token::Num(2)
+        ];
+        let valid_tree = Box::new(ParseTree::Prod(
+            ProdOp::Times, 
+            Box::new(ParseTree::Num(1)), 
+            Box::new(ParseTree::Num(2))
+        ));
         let mut valid_parser = Parser::new();
         valid_parser.parse(valid_tokens);
-        assert_eq!(valid_parser.tree.unwrap(), valid_term_tree(ProdOp::Times));
+        assert_eq!(valid_parser.tree.unwrap(), valid_tree);
     }
 
     #[test]
     fn invalid_product() {
-        let invalid_tokens = invalid_expression_tokens(Operator::Times);
+        let invalid_tokens = vec![Token::Num(3), Token::Op(Operator::Times)];
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);
         assert!(invalid_parser.tree.is_err(), "Unexpected end of input");
@@ -207,32 +236,75 @@ mod test {
 
     #[test]
     fn order_of_ops() {
-        let mut order_tokens = invalid_expression_tokens(Operator::Minus);
-        order_tokens.append(&mut valid_expression_tokens(Operator::Divide));
+        let mut valid_tokens = vec![Token::Num(3), Token::Op(Operator::Minus)];
+        valid_tokens.append(&mut vec![
+            Token::Num(1),
+            Token::Op(Operator::Times),
+            Token::Num(2)
+        ]);
+        let valid_tree = Box::new(ParseTree::Sum(
+            SumOp::Minus, 
+            Box::new(ParseTree::Num(3)),
+            Box::new(ParseTree::Prod(
+                    ProdOp::Times, 
+                    Box::new(ParseTree::Num(1)), 
+                    Box::new(ParseTree::Num(2))
+                ))
+            ));
         let mut valid_parser = Parser::new();
-        valid_parser.parse(order_tokens);
-        assert_eq!(valid_parser.tree.unwrap(), order_tree());
+        valid_parser.parse(valid_tokens);
+        assert_eq!(valid_parser.tree.unwrap(), valid_tree);
     }
 
     #[test]
     fn valid_unary_ops() {
-        let valid_tokens = unary_tokens();
+        let valid_tokens =  vec![Token::Op(Operator::Minus), Token::Num(1)];
         let mut valid_parser = Parser::new();
         valid_parser.parse(valid_tokens);
         assert_eq!(valid_parser.tree.unwrap(), Box::new(ParseTree::Unary(SumOp::Minus, Box::new(ParseTree::Num(1)))));
     }
 
     #[test]
+    fn invalid_unary_ops() {
+        let invalid_tokens = vec![Token::Op(Operator::Times), Token::Num(1)];
+        let mut invalid_parser = Parser::new();
+        invalid_parser.parse(invalid_tokens);
+        assert!(invalid_parser.tree.is_err(), "Invalid unary operator");
+    }
+
+    #[test]
     fn valid_parens() {
-        let valid_tokens = valid_parens_tokens();
+        let valid_tokens = vec![
+            Token::Num(3),
+            Token::Op(Operator::Times),
+            Token::LParen,
+            Token::Num(1),
+            Token::Op(Operator::Plus),
+            Token::Num(2),
+            Token::RParen
+        ];
+        let valid_tree = Box::new(ParseTree::Prod(
+            ProdOp::Times, 
+            Box::new(ParseTree::Num(3)), 
+            Box::new(ParseTree::Sum(
+                SumOp::Plus, 
+                Box::new(ParseTree::Num(1)), 
+                Box::new(ParseTree::Num(2))
+            ))
+        ));
         let mut valid_parser = Parser::new();
         valid_parser.parse(valid_tokens);
-        assert_eq!(valid_parser.tree.unwrap(), valid_parens_tree());
+        assert_eq!(valid_parser.tree.unwrap(), valid_tree);
     }
 
     #[test]
     fn invalid_parens() {
-        let invalid_tokens = invalid_parens_tokens();
+        let invalid_tokens = vec![
+            Token::LParen,
+            Token::Num(1),
+            Token::Op(Operator::Plus),
+            Token::Num(2)
+        ];
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);
         assert!(invalid_parser.tree.is_err(), "Missing right parenthesis");
@@ -240,82 +312,12 @@ mod test {
 
     #[test]
     fn catch_err_tokens() {
-        let invalid_tokens = error_tokens();
+        let invalid_tokens = vec![Token::Num(3),
+            Token::Error(String::from("$")),
+            Token::Ident(String::from("x"))
+        ];
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);
         assert!(invalid_parser.tree.is_err(), "Unexpected end of input");
-    }
-
-    fn valid_assign_tokens() -> Vec<Token> {
-        vec![Token::Ident(String::from("x")), 
-            Token::Assign, 
-            Token::Num(1)
-        ]
-    }
-
-    fn invalid_assign_tokens() -> Vec<Token> {
-        vec![Token::Num(3),
-            Token::Assign, 
-            Token::Ident(String::from("x"))]
-    }
-
-    fn valid_assign_tree() -> Box<ParseTree> {
-        Box::new(ParseTree::Assign(String::from("x"), Box::new(ParseTree::Num(1))))
-    }
-
-    fn valid_expression_tokens(op: Operator) -> Vec<Token> {
-        vec![Token::Num(1),
-            Token::Op(op),
-            Token::Num(2)
-        ]
-    }
-
-    fn invalid_expression_tokens(op: Operator) -> Vec<Token> {
-        vec![Token::Num(3), Token::Op(op)]
-    }
-
-    fn valid_expression_tree(op: SumOp) -> Box<ParseTree> {
-        Box::new(ParseTree::Sum(op, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))
-    }
-    fn valid_term_tree(op: ProdOp) -> Box<ParseTree> {
-        Box::new(ParseTree::Prod(op, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))
-    }
-
-    fn order_tree() -> Box<ParseTree> {
-        Box::new(ParseTree::Sum(SumOp::Minus, Box::new(ParseTree::Num(3)), Box::new(ParseTree::Prod(ProdOp::Divide, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))))
-    }
-
-    fn unary_tokens() -> Vec<Token> {
-        vec![Token::Op(Operator::Minus), Token::Num(1)]
-    }
-
-    fn valid_parens_tokens() -> Vec<Token> {
-        vec![Token::Num(3),
-            Token::Op(Operator::Times),
-            Token::LParen,
-            Token::Num(1),
-            Token::Op(Operator::Plus),
-            Token::Num(2),
-            Token::RParen
-        ]
-    }
-
-    fn invalid_parens_tokens() -> Vec<Token> {
-        vec![Token::LParen,
-            Token::Num(1),
-            Token::Op(Operator::Plus),
-            Token::Num(2)
-        ]
-    }
-
-    fn valid_parens_tree() -> Box<ParseTree> {
-        Box::new(ParseTree::Prod(ProdOp::Times, Box::new(ParseTree::Num(3)), Box::new(ParseTree::Sum(SumOp::Plus, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))))
-    }
-
-    fn error_tokens() -> Vec<Token> {
-        vec![Token::Num(3),
-            Token::Error(String::from("$")),
-            Token::Ident(String::from("x"))
-        ]
     }
 }
