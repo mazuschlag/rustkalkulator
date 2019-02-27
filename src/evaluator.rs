@@ -60,5 +60,88 @@ fn evaluate_tree<'a>(parse_tree: ParseTree, symbols: HashMap<String, i32>) -> (R
 
 mod test {
     use super::*;
-    
+
+    #[test]
+    fn valid_sum() {
+        let valid_tree = Box::new(ParseTree::Sum(
+            SumOp::Plus, 
+            Box::new(ParseTree::Num(1)), 
+            Box::new(ParseTree::Num(2))
+        ));
+        let symbols = HashMap::new();
+        let (result, _) = evaluate_tree(*valid_tree, symbols);
+        assert_eq!(result.unwrap(), 3);
+    }
+
+    #[test]
+    fn valid_prod() {
+        let valid_tree = Box::new(ParseTree::Prod(
+            ProdOp::Times, 
+            Box::new(ParseTree::Num(1)), 
+            Box::new(ParseTree::Num(2))
+        ));
+        let symbols = HashMap::new();
+        let (result, _) = evaluate_tree(*valid_tree, symbols);
+        assert_eq!(result.unwrap(), 2);
+    }
+
+    #[test]
+    fn valid_complex() {
+        let valid_tree = Box::new(ParseTree::Prod(
+            ProdOp::Times, 
+            Box::new(ParseTree::Num(3)),    
+            Box::new(ParseTree::Sum(
+                SumOp::Minus,
+                Box::new(ParseTree::Num(1)), 
+                Box::new(ParseTree::Num(2))
+            ))
+        ));
+        let symbols = HashMap::new();
+        let (result, _) = evaluate_tree(*valid_tree, symbols);
+        assert_eq!(result.unwrap(), -3);
+    }
+
+    #[test]
+    fn valid_unary() {
+        let valid_tree = Box::new(ParseTree::Sum(
+            SumOp::Minus,
+            Box::new(ParseTree::Unary(
+                SumOp::Minus, 
+                Box::new(ParseTree::Num(1))
+            )),
+            Box::new(ParseTree::Num(1))
+        ));
+        let symbols = HashMap::new();
+        let (result, _) = evaluate_tree(*valid_tree, symbols);
+        assert_eq!(result.unwrap(), -2); 
+    }
+
+    #[test]
+    fn valid_variable() {
+        let valid_tree = Box::new(ParseTree::Assign(
+            String::from("x"),
+            Box::new(ParseTree::Sum(
+                SumOp::Plus, 
+                Box::new(ParseTree::Num(1)), 
+                Box::new(ParseTree::Num(2))
+            ))
+        ));
+        let symbols = HashMap::new();
+        let (result, new_symbols) = evaluate_tree(*valid_tree, symbols);
+        let new_valid_tree = Box::new(ParseTree::Var(String::from("x")));
+        let (new_result, _) = evaluate_tree(*new_valid_tree, new_symbols);
+        assert_eq!(new_result.unwrap(), result.unwrap()); 
+    }
+
+    #[test]
+    fn invalid_variable() {
+        let valid_tree = Box::new(ParseTree::Sum(
+            SumOp::Plus, 
+            Box::new(ParseTree::Num(1)), 
+            Box::new(ParseTree::Var(String::from("x")))
+        ));
+        let symbols = HashMap::new();
+        let (result, _) = evaluate_tree(*valid_tree, symbols);
+        assert!(result.is_err(), "Undefined variable"); 
+    }
 }
