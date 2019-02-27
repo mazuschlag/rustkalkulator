@@ -1,42 +1,47 @@
-use super::lexer;
+use super::lexer::Token;
+use super::lexer::Operator;
 
 #[derive(PartialEq, Debug)]
 pub enum ParseTree {
-    Sum(Op, Box<ParseTree>, Box<ParseTree>),
-    Prod(Op, Box<ParseTree>, Box<ParseTree>),
+    Sum(SumOp, Box<ParseTree>, Box<ParseTree>),
+    Prod(ProdOp, Box<ParseTree>, Box<ParseTree>),
     Assign(String, Box<ParseTree>),
-    Unary(Op, Box<ParseTree>),
-    Num(u32),
+    Unary(SumOp, Box<ParseTree>),
+    Num(i32),
     Var(String)
 }
 
 #[derive(PartialEq, Debug)]
-pub enum Op {
+pub enum SumOp {
     Plus,
-    Minus,
+    Minus
+}
+
+#[derive(PartialEq, Debug)]
+pub enum ProdOp {
     Times,
     Divide
 }
 
 #[derive(Debug)]
 pub struct Parser<'a> {
-    tree: Result<Box<ParseTree>, &'a str>,
+    pub tree: Result<Box<ParseTree>, &'a str>,
 }
 
-impl <'a> Parser<'a> {
+impl<'a> Parser<'a> {
     pub fn new() -> Parser<'a> {
         Parser { 
             tree: Err("Nothing to parse"),
         }
     }
 
-    pub fn parse(&mut self, tokens: Vec<lexer::Token>) {
+    pub fn parse(&mut self, tokens: Vec<Token>) {
         self.tree = match Parser::expression(tokens.into_iter(), None) {
             (tree, _, _) => tree
         }   
     }
 
-    fn expression(tokens: std::vec::IntoIter<lexer::Token>, token: Option<lexer::Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<lexer::Token>, Option<lexer::Token>) {
+    fn expression(tokens: std::vec::IntoIter<Token>, token: Option<Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<Token>, Option<Token>) {
         let (term_result, mut tokens, mut token) = Parser::term(tokens, token);
         if token == None {
             token = tokens.next();
@@ -45,10 +50,10 @@ impl <'a> Parser<'a> {
             Err(_) => (term_result, tokens, None),
             Ok(term_tree) => {
                 match token {
-                    Some(lexer::Token::Op(op)) => {
+                    Some(Token::Op(op)) => {
                         match op {
-                            lexer::Operator::Plus | lexer::Operator::Minus => {
-                                let node_op = if op == lexer::Operator::Plus { Op::Plus } else { Op::Minus };
+                            Operator::Plus | Operator::Minus => {
+                                let node_op = if op == Operator::Plus { SumOp::Plus } else { SumOp::Minus };
                                 match Parser::expression(tokens, None) { 
                                     (Err(e), tokens, _) => (Err(e), tokens, None), 
                                     (Ok(expression_tree), tokens, token) => {
@@ -61,7 +66,7 @@ impl <'a> Parser<'a> {
                             }
                         }
                     },
-                    Some(lexer::Token::Assign) => {
+                    Some(Token::Assign) => {
                         match *term_tree {
                             ParseTree::Var(s) => {
                                 match Parser::expression(tokens, None) {
@@ -74,7 +79,7 @@ impl <'a> Parser<'a> {
                             _ => (Err("Only variables can be assigned to"), tokens, None)
                         }
                     },
-                    Some(lexer::Token::Error) => (Err("Unexpected end of input"), tokens, None),
+                    Some(Token::Error) => (Err("Unexpected end of input"), tokens, None),
                     _ => {
                         (Ok(term_tree), tokens, token)
                     }
@@ -83,7 +88,7 @@ impl <'a> Parser<'a> {
         }
     }
 
-    fn term(tokens: std::vec::IntoIter<lexer::Token>, token: Option<lexer::Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<lexer::Token>, Option<lexer::Token>) {
+    fn term(tokens: std::vec::IntoIter<Token>, token: Option<Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<Token>, Option<Token>) {
         let (factor_result, mut tokens, mut token) = Parser::factor(tokens, token);
         if token == None {
             token = tokens.next();
@@ -92,10 +97,10 @@ impl <'a> Parser<'a> {
             Err(_) => (factor_result, tokens, None),
             Ok(factor_tree) => {
                 match token {
-                    Some(lexer::Token::Op(op)) => {
+                    Some(Token::Op(op)) => {
                         match op {
-                            lexer::Operator::Times | lexer::Operator::Divide => {
-                                let tree_op = if op == lexer::Operator::Times { Op::Times } else { Op::Divide };
+                            Operator::Times | Operator::Divide => {
+                                let tree_op = if op == Operator::Times { ProdOp::Times } else { ProdOp::Divide };
                                 match Parser::term(tokens, None) {
                                     (Err(e), tokens, _) => (Err(e), tokens, None),
                                     (Ok(term_tree), tokens, token) => {
@@ -106,28 +111,28 @@ impl <'a> Parser<'a> {
                             _ => (Ok(factor_tree), tokens, token)
                         }
                     },
-                    Some(lexer::Token::Error) => (Err("Unexpected end of input"), tokens, None),
+                    Some(Token::Error) => (Err("Unexpected end of input"), tokens, None),
                     _ => (Ok(factor_tree), tokens, token)
                 }
             }
         }
     }
 
-    fn factor(mut tokens: std::vec::IntoIter<lexer::Token>, mut token: Option<lexer::Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<lexer::Token>, Option<lexer::Token>) {
+    fn factor(mut tokens: std::vec::IntoIter<Token>, mut token: Option<Token>) -> (Result<Box<ParseTree>, &'a str>, std::vec::IntoIter<Token>, Option<Token>) {
         if token == None {
             token = tokens.next();
         }
         match token {
-            Some(lexer::Token::Num(n)) => {
+            Some(Token::Num(n)) => {
                 (Ok(Box::new(ParseTree::Num(n))), tokens, None)
             },
-            Some(lexer::Token::Ident(i)) => {
+            Some(Token::Ident(i)) => {
                 (Ok(Box::new(ParseTree::Var(i))), tokens, None)
             },
-            Some(lexer::Token::Op(op)) => {
+            Some(Token::Op(op)) => {
                 match op {
-                    lexer::Operator::Plus | lexer::Operator::Minus => {
-                        let tree_op = if op == lexer::Operator::Plus { Op::Plus } else { Op::Minus };
+                    Operator::Plus | Operator::Minus => {
+                        let tree_op = if op == Operator::Plus { SumOp::Plus } else { SumOp::Minus };
                         match Parser::factor(tokens, None) {
                             (Err(e), tokens, _) => (Err(e), tokens, None),
                             (Ok(factor_tree), tokens, token) => (Ok(Box::new(ParseTree::Unary(tree_op, factor_tree))), tokens, token)
@@ -136,13 +141,13 @@ impl <'a> Parser<'a> {
                     _ => (Err("Parse error on token"), tokens, None)
                 }
             },
-            Some(lexer::Token::LParen) => {
+            Some(Token::LParen) => {
                 match Parser::expression(tokens, None) {
-                    (Ok(expression_tree), tokens, Some(lexer::Token::RParen)) => (Ok(expression_tree), tokens, None),
+                    (Ok(expression_tree), tokens, Some(Token::RParen)) => (Ok(expression_tree), tokens, None),
                     (_, tokens, _)=> (Err("Missing right parenthesis"), tokens, None)
                 }
             },
-            Some(lexer::Token::Error) => (Err("Unexpected end of input"), tokens, None),
+            Some(Token::Error) => (Err("Unexpected end of input"), tokens, None),
             _ => (Err("Parse error on token"), tokens, None)
         }
     }
@@ -170,15 +175,15 @@ mod test {
 
     #[test]
     fn valid_sum() {
-        let valid_tokens = valid_expression_tokens(lexer::Operator::Plus);
+        let valid_tokens = valid_expression_tokens(Operator::Plus);
         let mut valid_parser = Parser::new();
         valid_parser.parse(valid_tokens);
-        assert_eq!(valid_parser.tree.unwrap(), valid_expression_tree(Op::Plus));
+        assert_eq!(valid_parser.tree.unwrap(), valid_expression_tree(SumOp::Plus));
     }
 
     #[test]
     fn invalid_sum() {
-        let invalid_tokens = invalid_expression_tokens(lexer::Operator::Plus);
+        let invalid_tokens = invalid_expression_tokens(Operator::Plus);
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);
         assert!(invalid_parser.tree.is_err(), "Parse error on token");
@@ -186,15 +191,15 @@ mod test {
 
     #[test]
     fn valid_product() {
-        let valid_tokens = valid_expression_tokens(lexer::Operator::Times);
+        let valid_tokens = valid_expression_tokens(Operator::Times);
         let mut valid_parser = Parser::new();
         valid_parser.parse(valid_tokens);
-        assert_eq!(valid_parser.tree.unwrap(), valid_expression_tree(Op::Times));
+        assert_eq!(valid_parser.tree.unwrap(), valid_term_tree(ProdOp::Times));
     }
 
     #[test]
     fn invalid_product() {
-        let invalid_tokens = invalid_expression_tokens(lexer::Operator::Times);
+        let invalid_tokens = invalid_expression_tokens(Operator::Times);
         let mut invalid_parser = Parser::new();
         invalid_parser.parse(invalid_tokens);
         assert!(invalid_parser.tree.is_err(), "Parse error on token");
@@ -202,8 +207,8 @@ mod test {
 
     #[test]
     fn order_of_ops() {
-        let mut order_tokens = invalid_expression_tokens(lexer::Operator::Minus);
-        order_tokens.append(&mut valid_expression_tokens(lexer::Operator::Divide));
+        let mut order_tokens = invalid_expression_tokens(Operator::Minus);
+        order_tokens.append(&mut valid_expression_tokens(Operator::Divide));
         let mut valid_parser = Parser::new();
         valid_parser.parse(order_tokens);
         assert_eq!(valid_parser.tree.unwrap(), order_tree());
@@ -214,7 +219,7 @@ mod test {
         let valid_tokens = unary_tokens();
         let mut valid_parser = Parser::new();
         valid_parser.parse(valid_tokens);
-        assert_eq!(valid_parser.tree.unwrap(), Box::new(ParseTree::Unary(Op::Minus, Box::new(ParseTree::Num(1)))));
+        assert_eq!(valid_parser.tree.unwrap(), Box::new(ParseTree::Unary(SumOp::Minus, Box::new(ParseTree::Num(1)))));
     }
 
     #[test]
@@ -241,76 +246,76 @@ mod test {
         assert!(invalid_parser.tree.is_err(), "Unexpected end of input");
     }
 
-    fn valid_assign_tokens() -> Vec<lexer::Token> {
-        vec![lexer::Token::Ident(String::from("x")), 
-            lexer::Token::Assign, 
-            lexer::Token::Num(1)
+    fn valid_assign_tokens() -> Vec<Token> {
+        vec![Token::Ident(String::from("x")), 
+            Token::Assign, 
+            Token::Num(1)
         ]
     }
 
-    fn invalid_assign_tokens() -> Vec<lexer::Token> {
-        vec![lexer::Token::Num(3),
-            lexer::Token::Assign, 
-            lexer::Token::Ident(String::from("x"))]
+    fn invalid_assign_tokens() -> Vec<Token> {
+        vec![Token::Num(3),
+            Token::Assign, 
+            Token::Ident(String::from("x"))]
     }
 
     fn valid_assign_tree() -> Box<ParseTree> {
         Box::new(ParseTree::Assign(String::from("x"), Box::new(ParseTree::Num(1))))
     }
 
-    fn valid_expression_tokens(op: lexer::Operator) -> Vec<lexer::Token> {
-        vec![lexer::Token::Num(1),
-            lexer::Token::Op(op),
-            lexer::Token::Num(2)
+    fn valid_expression_tokens(op: Operator) -> Vec<Token> {
+        vec![Token::Num(1),
+            Token::Op(op),
+            Token::Num(2)
         ]
     }
 
-    fn invalid_expression_tokens(op: lexer::Operator) -> Vec<lexer::Token> {
-        vec![lexer::Token::Num(3), lexer::Token::Op(op)]
+    fn invalid_expression_tokens(op: Operator) -> Vec<Token> {
+        vec![Token::Num(3), Token::Op(op)]
     }
 
-    fn valid_expression_tree(op: Op) -> Box<ParseTree> {
-        match op {
-            Op::Plus | Op::Minus => Box::new(ParseTree::Sum(op, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2)))),
-            _ => Box::new(ParseTree::Prod(op, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))
-        }
+    fn valid_expression_tree(op: SumOp) -> Box<ParseTree> {
+        Box::new(ParseTree::Sum(op, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))
+    }
+    fn valid_term_tree(op: ProdOp) -> Box<ParseTree> {
+        Box::new(ParseTree::Prod(op, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))
     }
 
     fn order_tree() -> Box<ParseTree> {
-        Box::new(ParseTree::Sum(Op::Minus, Box::new(ParseTree::Num(3)), Box::new(ParseTree::Prod(Op::Divide, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))))
+        Box::new(ParseTree::Sum(SumOp::Minus, Box::new(ParseTree::Num(3)), Box::new(ParseTree::Prod(ProdOp::Divide, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))))
     }
 
-    fn unary_tokens() -> Vec<lexer::Token> {
-        vec![lexer::Token::Op(lexer::Operator::Minus), lexer::Token::Num(1)]
+    fn unary_tokens() -> Vec<Token> {
+        vec![Token::Op(Operator::Minus), Token::Num(1)]
     }
 
-    fn valid_parens_tokens() -> Vec<lexer::Token> {
-        vec![lexer::Token::Num(3),
-            lexer::Token::Op(lexer::Operator::Times),
-            lexer::Token::LParen,
-            lexer::Token::Num(1),
-            lexer::Token::Op(lexer::Operator::Plus),
-            lexer::Token::Num(2),
-            lexer::Token::RParen
+    fn valid_parens_tokens() -> Vec<Token> {
+        vec![Token::Num(3),
+            Token::Op(Operator::Times),
+            Token::LParen,
+            Token::Num(1),
+            Token::Op(Operator::Plus),
+            Token::Num(2),
+            Token::RParen
         ]
     }
 
-    fn invalid_parens_tokens() -> Vec<lexer::Token> {
-        vec![lexer::Token::LParen,
-            lexer::Token::Num(1),
-            lexer::Token::Op(lexer::Operator::Plus),
-            lexer::Token::Num(2)
+    fn invalid_parens_tokens() -> Vec<Token> {
+        vec![Token::LParen,
+            Token::Num(1),
+            Token::Op(Operator::Plus),
+            Token::Num(2)
         ]
     }
 
     fn valid_parens_tree() -> Box<ParseTree> {
-        Box::new(ParseTree::Prod(Op::Times, Box::new(ParseTree::Num(3)), Box::new(ParseTree::Sum(Op::Plus, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))))
+        Box::new(ParseTree::Prod(ProdOp::Times, Box::new(ParseTree::Num(3)), Box::new(ParseTree::Sum(SumOp::Plus, Box::new(ParseTree::Num(1)), Box::new(ParseTree::Num(2))))))
     }
 
-    fn error_tokens() -> Vec<lexer::Token> {
-        vec![lexer::Token::Num(3),
-            lexer::Token::Error,
-            lexer::Token::Ident(String::from("x"))
+    fn error_tokens() -> Vec<Token> {
+        vec![Token::Num(3),
+            Token::Error,
+            Token::Ident(String::from("x"))
         ]
     }
 }
